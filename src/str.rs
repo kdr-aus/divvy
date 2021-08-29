@@ -14,14 +14,14 @@ const STRARR_LEN: u8 = 22;
 
 /// A stack allocated string.
 ///
-/// `DStr` has three variants, static, which captures static string slices, stack, which is a
+/// `Str` has three variants, static, which captures static string slices, stack, which is a
 /// 22 byte array, and heap, a [`String`]. When on the heap, the [`String`] is wrapped in an
 /// [`Arc`] to provide cheap [`Clone`]ing of the value, just cloning the pointer.
 /// Small strings are kept in the stack until a heap alloction is required.
-pub struct DStr(S);
+pub struct Str(S);
 
-impl DStr {
-    /// Create a `DStr` from something that is a string reference.
+impl Str {
+    /// Create a `Str` from something that is a string reference.
     pub fn new<T>(string: T) -> Self
     where
         T: AsRef<str>,
@@ -39,7 +39,7 @@ impl DStr {
         }
     }
 
-    /// Represent the `DStr` as a string slice.
+    /// Represent the `Str` as a string slice.
     pub fn as_str(&self) -> &str {
         match &self.0 {
             Static(x) => x,
@@ -75,26 +75,26 @@ impl DStr {
         }
     }
 
-    /// Does a pointer equality check of two [`DStr`]s.
+    /// Does a pointer equality check of two [`Str`]s.
     ///
-    /// Two [`DStr`]s can share the same pointer to either a shared `&'static str`, or a shared
+    /// Two [`Str`]s can share the same pointer to either a shared `&'static str`, or a shared
     /// `Arc<String>`.
     ///
     /// # Example
     /// ```rust
     /// # use std::sync::Arc;
-    /// # use divvy::DStr;
+    /// # use divvy::Str;
     /// let a = Arc::new("Hello".to_string());
     /// let b = Arc::new("Hello".to_string());
-    /// let a1 = DStr::from(&a);
-    /// let a2 = DStr::from(&a);
-    /// let b1 = DStr::from(&b);
+    /// let a1 = Str::from(&a);
+    /// let a2 = Str::from(&a);
+    /// let b1 = Str::from(&b);
     ///
-    /// assert_eq!(DStr::ptr_eq(&a1, &a2), true);
-    /// assert_eq!(DStr::ptr_eq(&a1, &b1), false);
+    /// assert_eq!(Str::ptr_eq(&a1, &a2), true);
+    /// assert_eq!(Str::ptr_eq(&a1, &b1), false);
     /// assert_eq!(a1.eq(&b1), true); // value equality
     /// ```
-    pub fn ptr_eq(this: &DStr, other: &DStr) -> bool {
+    pub fn ptr_eq(this: &Str, other: &Str) -> bool {
         match (&this.0, &other.0) {
             (Static(a), Static(b)) => std::ptr::eq(*a, *b),
             (Heap(a), Heap(b)) => Arc::ptr_eq(a, b),
@@ -103,134 +103,134 @@ impl DStr {
     }
 }
 
-impl fmt::Debug for DStr {
+impl fmt::Debug for Str {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.as_str())
     }
 }
 
-impl fmt::Display for DStr {
+impl fmt::Display for Str {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.pad(self)
     }
 }
 
-impl AsRef<str> for DStr {
+impl AsRef<str> for Str {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl Deref for DStr {
+impl Deref for Str {
     type Target = str;
     fn deref(&self) -> &str {
         self.as_ref()
     }
 }
 
-impl Borrow<str> for DStr {
+impl Borrow<str> for Str {
     fn borrow(&self) -> &str {
         self.as_str()
     }
 }
 
-impl Default for DStr {
+impl Default for Str {
     fn default() -> Self {
         Self(Heap(Arc::new(String::new())))
     }
 }
 
-impl std::str::FromStr for DStr {
+impl std::str::FromStr for Str {
     type Err = std::convert::Infallible;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(DStr::new(s))
+        Ok(Str::new(s))
     }
 }
 
-impl serde::Serialize for DStr {
+impl serde::Serialize for Str {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
-impl<'de> serde::Deserialize<'de> for DStr {
+impl<'de> serde::Deserialize<'de> for Str {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        <&str>::deserialize(deserializer).map(DStr::new)
+        <&str>::deserialize(deserializer).map(Str::new)
     }
 }
 
 // ########### FROM CONVERSIONS ###############################################
-impl From<&'static str> for DStr {
+impl From<&'static str> for Str {
     fn from(x: &'static str) -> Self {
         Self(Static(x))
     }
 }
 
-impl From<String> for DStr {
+impl From<String> for Str {
     fn from(x: String) -> Self {
         Self(Heap(Arc::new(x)))
     }
 }
 
-impl From<&String> for DStr {
+impl From<&String> for Str {
     fn from(x: &String) -> Self {
-        DStr::new(x)
+        Str::new(x)
     }
 }
 
-impl From<&mut String> for DStr {
+impl From<&mut String> for Str {
     fn from(x: &mut String) -> Self {
-        DStr::new(x)
+        Str::new(x)
     }
 }
 
-impl From<Arc<String>> for DStr {
+impl From<Arc<String>> for Str {
     fn from(x: Arc<String>) -> Self {
-        DStr(Heap(x))
+        Str(Heap(x))
     }
 }
 
-impl From<&Arc<String>> for DStr {
+impl From<&Arc<String>> for Str {
     fn from(x: &Arc<String>) -> Self {
-        DStr(Heap(Arc::clone(x)))
+        Str(Heap(Arc::clone(x)))
     }
 }
 
-impl From<Cow<'static, str>> for DStr {
+impl From<Cow<'static, str>> for Str {
     fn from(x: Cow<'static, str>) -> Self {
         match x {
-            Cow::Borrowed(x) => DStr::from(x),
-            Cow::Owned(x) => DStr::from(x),
+            Cow::Borrowed(x) => Str::from(x),
+            Cow::Owned(x) => Str::from(x),
         }
     }
 }
 
-impl iter::FromIterator<char> for DStr {
+impl iter::FromIterator<char> for Str {
     fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
         Self::from(iter.into_iter().collect::<String>())
     }
 }
 
 // ########### COMPARISONS ####################################################
-impl PartialEq for DStr {
+impl PartialEq for Str {
     fn eq(&self, other: &Self) -> bool {
-        if DStr::ptr_eq(self, other) {
+        if Str::ptr_eq(self, other) {
             true
         } else {
             self.as_str() == other.as_str()
         }
     }
 }
-impl Eq for DStr {}
+impl Eq for Str {}
 
-impl PartialEq<str> for DStr {
+impl PartialEq<str> for Str {
     fn eq(&self, other: &str) -> bool {
         self.as_str() == other
     }
 }
 
-impl Ord for DStr {
+impl Ord for Str {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        if DStr::ptr_eq(self, other) {
+        if Str::ptr_eq(self, other) {
             cmp::Ordering::Equal
         } else {
             self.as_str().cmp(other.as_str())
@@ -238,25 +238,25 @@ impl Ord for DStr {
     }
 }
 
-impl PartialOrd for DStr {
+impl PartialOrd for Str {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialOrd<str> for DStr {
+impl PartialOrd<str> for Str {
     fn partial_cmp(&self, other: &str) -> Option<cmp::Ordering> {
         Some(self.as_str().cmp(other))
     }
 }
 
-impl Hash for DStr {
+impl Hash for Str {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.as_str().hash(hasher)
     }
 }
 
-impl Clone for DStr {
+impl Clone for Str {
     fn clone(&self) -> Self {
         match &self.0 {
             Static(s) => Self(Static(s)),
@@ -292,11 +292,11 @@ mod tests {
     #[test]
     fn test_into_string() {
         let expecting = String::from("Hello, world!");
-        let ss = DStr(Static("Hello, world!"));
+        let ss = Str(Static("Hello, world!"));
         assert_eq!(ss.into_string(), expecting);
-        let ss = DStr::new("Hello, world!");
+        let ss = Str::new("Hello, world!");
         assert_eq!(ss.into_string(), expecting);
-        let ss = DStr(Heap(Arc::new(expecting.clone())));
+        let ss = Str(Heap(Arc::new(expecting.clone())));
         assert_eq!(ss.into_string(), expecting);
     }
 
@@ -304,15 +304,15 @@ mod tests {
     fn test_to_mut() {
         let expecting = "Hello, world!";
 
-        let mut ss = DStr(Static(""));
+        let mut ss = Str(Static(""));
         ss.to_mut().push_str(expecting);
         assert_eq!(ss.as_str(), expecting);
 
-        let mut ss = DStr::new("");
+        let mut ss = Str::new("");
         ss.to_mut().push_str(expecting);
         assert_eq!(ss.as_str(), expecting);
 
-        let mut ss = DStr(Heap(Arc::new("".into())));
+        let mut ss = Str(Heap(Arc::new("".into())));
         ss.to_mut().push_str(expecting);
         assert_eq!(ss.as_str(), expecting);
     }
@@ -320,24 +320,24 @@ mod tests {
     #[test]
     fn debug_test() {
         let expecting = format!("{:?}", String::from("Hello, world!"));
-        let ss = DStr(Static("Hello, world!"));
+        let ss = Str(Static("Hello, world!"));
         assert_eq!(format!("{:?}", ss), expecting);
-        let ss = DStr::from("Hello, world!");
+        let ss = Str::from("Hello, world!");
         assert_eq!(format!("{:?}", ss), expecting);
-        let ss = DStr(Heap(Arc::new("Hello, world!".into())));
+        let ss = Str(Heap(Arc::new("Hello, world!".into())));
         assert_eq!(format!("{:?}", ss), expecting);
     }
 
     #[test]
     fn fmting_test() {
-        let s = format!("{:15} here", DStr::from("Hello"));
+        let s = format!("{:15} here", Str::from("Hello"));
         assert_eq!(&s, "Hello           here");
     }
 
     #[test]
     fn ord_test() {
-        let s1 = DStr::from("a");
-        let s2 = DStr::from("b");
+        let s1 = Str::from("a");
+        let s2 = Str::from("b");
         assert_eq!(s1.partial_cmp(&s2), Some(cmp::Ordering::Less));
     }
 
@@ -345,81 +345,81 @@ mod tests {
     fn ptr_eq_testing() {
         let a = "Hello";
         let b = "Hello";
-        let c = DStr(Static(a));
-        let a = DStr(Static(a));
-        let b = DStr(Static(b));
+        let c = Str(Static(a));
+        let a = Str(Static(a));
+        let b = Str(Static(b));
 
         assert_eq!(a.eq(&b), true);
-        assert_eq!(DStr::ptr_eq(&a, &a), true);
-        assert_eq!(DStr::ptr_eq(&a, &b), true); // Rust interns the same static strs
-        assert_eq!(DStr::ptr_eq(&a, &c), true);
+        assert_eq!(Str::ptr_eq(&a, &a), true);
+        assert_eq!(Str::ptr_eq(&a, &b), true); // Rust interns the same static strs
+        assert_eq!(Str::ptr_eq(&a, &c), true);
 
         let a = "Hello";
         let b = "Hello";
-        let a = DStr(Heap(Arc::new(a.to_string())));
-        let b = DStr(Heap(Arc::new(b.to_string())));
+        let a = Str(Heap(Arc::new(a.to_string())));
+        let b = Str(Heap(Arc::new(b.to_string())));
         let c = a.clone();
 
         assert_eq!(a.eq(&b), true);
-        assert_eq!(DStr::ptr_eq(&a, &a), true);
-        assert_eq!(DStr::ptr_eq(&a, &b), false);
-        assert_eq!(DStr::ptr_eq(&a, &c), true);
+        assert_eq!(Str::ptr_eq(&a, &a), true);
+        assert_eq!(Str::ptr_eq(&a, &b), false);
+        assert_eq!(Str::ptr_eq(&a, &c), true);
 
-        assert_eq!(DStr::ptr_eq(&a, &DStr::from("Hello")), false);
+        assert_eq!(Str::ptr_eq(&a, &Str::from("Hello")), false);
 
         let a = Arc::new("Hello".to_string());
         let b = Arc::new("Hello".to_string());
 
-        let a1 = DStr::from(&a);
-        let a2 = DStr::from(&a);
-        let b1 = DStr::from(&b);
+        let a1 = Str::from(&a);
+        let a2 = Str::from(&a);
+        let b1 = Str::from(&b);
 
         assert_eq!(a1.eq(&b1), true);
-        assert_eq!(DStr::ptr_eq(&a1, &a2), true);
+        assert_eq!(Str::ptr_eq(&a1, &a2), true);
         assert_eq!(a1.eq(&a2), true);
-        assert_eq!(DStr::ptr_eq(&a1, &b1), false);
+        assert_eq!(Str::ptr_eq(&a1, &b1), false);
         assert_eq!(a1.cmp(&a2), cmp::Ordering::Equal);
     }
 
     #[test]
     fn from_testing() {
-        let s = DStr::from("Hello, world");
+        let s = Str::from("Hello, world");
         match s.0 {
             Static(_) => (),
             _ => panic!("expecting this variant"),
         }
 
-        let s = DStr::from("Hello, world".to_string());
+        let s = Str::from("Hello, world".to_string());
         match s.0 {
             Heap(_) => (),
             _ => panic!("expecting this variant"),
         }
 
-        let s = DStr::from(&"Hello, world".to_string());
+        let s = Str::from(&"Hello, world".to_string());
         match s.0 {
             Stack(_) => (),
             _ => panic!("expecting this variant"),
         }
 
-        let s = DStr::from(&mut "Hello, world".to_string());
+        let s = Str::from(&mut "Hello, world".to_string());
         match s.0 {
             Stack(_) => (),
             _ => panic!("expecting this variant"),
         }
 
-        let s = DStr::from(Arc::new("Hello, world".to_string()));
+        let s = Str::from(Arc::new("Hello, world".to_string()));
         match s.0 {
             Heap(_) => (),
             _ => panic!("expecting this variant"),
         }
 
-        let s = DStr::from(Cow::Borrowed("Hello, world"));
+        let s = Str::from(Cow::Borrowed("Hello, world"));
         match s.0 {
             Static(_) => (),
             _ => panic!("expecting this variant"),
         }
 
-        let s = DStr::from(Cow::Owned("Hello, world".to_string()));
+        let s = Str::from(Cow::Owned("Hello, world".to_string()));
         match s.0 {
             Heap(_) => (),
             _ => panic!("expecting this variant"),

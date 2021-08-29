@@ -4,4 +4,4 @@
 mod str;
 
 #[doc(inline)]
-pub use crate::str::DStr;
+pub use crate::str::Str;
