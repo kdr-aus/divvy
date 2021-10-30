@@ -210,6 +210,19 @@ impl iter::FromIterator<char> for Str {
     }
 }
 
+impl From<char> for Str {
+    fn from(x: char) -> Self {
+        let mut arr = [0; STRARR_LEN as usize];
+        Str(Stack((x.encode_utf8(&mut arr).len() as u8, arr)))
+    }
+}
+
+impl From<&char> for Str {
+    fn from(x: &char) -> Self {
+        Str::from(*x)
+    }
+}
+
 // ########### COMPARISONS ####################################################
 impl PartialEq for Str {
     fn eq(&self, other: &Self) -> bool {
@@ -424,5 +437,25 @@ mod tests {
             Heap(_) => (),
             _ => panic!("expecting this variant"),
         }
+
+        let s = Str::from('ß');
+        match s.0 {
+            Stack(_) => (),
+            _ => panic!("expecting this variant"),
+        }
+
+        let s = Str::from(&'ß');
+        match s.0 {
+            Stack(_) => (),
+            _ => panic!("expecting this variant"),
+        }
+    }
+
+    #[test]
+    fn char_testing() {
+        assert_eq!(Str::from(&'A').as_str(), "A");
+        assert_eq!(Str::from(&'ß').as_str(), "ß");
+        assert_eq!(Str::from(&'ℝ').as_str(), "ℝ");
+        assert_eq!(Str::from(&'💣').as_str(), "💣");
     }
 }
